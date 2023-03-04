@@ -1,61 +1,74 @@
 import requests
 import traceback
 import re
+import json
+import sys
 
 
-def request(url, allow_redirects=True):
-    headers = {
-        'User-Agent':
-        'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Mobile Safari/537.36 Edg/87.0.664.66',
-        'Referer': 'https://www.douyin.com/',
-    }
-    cookies = {
-        'msToken':
-        'tsQyL2_m4XgtIij2GZfyu8XNXBfTGELdreF1jeIJTyktxMqf5MMIna8m1bv7zYz4pGLinNP2TvISbrzvFubLR8khwmAVLfImoWo3Ecnl_956MgOK9kOBdwM=',
-        'odin_tt':
-        '6db0a7d68fd2147ddaf4db0b911551e472d698d7b84a64a24cf07c49bdc5594b2fb7a42fd125332977218dd517a36ec3c658f84cebc6f806032eff34b36909607d5452f0f9d898810c369cd75fd5fb15',
-        'ttwid':
-        '1%7CfhiqLOzu_UksmD8_muF_TNvFyV909d0cw8CSRsmnbr0%7C1662368529%7C048a4e969ec3570e84a5faa3518aa7e16332cfc7fbcb789780135d33a34d94d2'
-    }
-    res = requests.get(
-        url=url,
-        headers=headers,
-        cookies=cookies,
-        allow_redirects=allow_redirects,
-    )
-    return res
+# 从浏览器控制台获取, 粘贴在此处即可
+headerCookie = "__ac_nonce=06402dd0000da91aec05c; __ac_signature=_02B4Z6wo00f01jurmhgAAIDDsv4z-s1LPCI7i56AAOr2soZhC7xn7i3P7xj6s3Whltq4pHh6dzXwb.CBBbLwXNM7ycZtEf6L5NDAM-wCEhcaYtyNpkzCAYPu5578tAv3pUwxFZg1UmU24FVs73; ttwid=1%7C7xnnPBJbHwZV_wOrvtbB77nxTlo4-_zQyWiOzRx0LdA%7C1677909248%7C0e1ae864da3e0eea91aa5a177cf712258c76e4b848579bcc6704b27c31b1e13a; home_can_add_dy_2_desktop=%220%22; strategyABtestKey=%221677909266.305%22; s_v_web_id=verify_letjusmj_c8HwyH5w_u0KB_4Rg9_AYRT_TU6idjVx3lzq; bd_ticket_guard_client_data=eyJiZC10aWNrZXQtZ3VhcmQtdmVyc2lvbiI6MiwiYmQtdGlja2V0LWd1YXJkLWNsaWVudC1jc3IiOiItLS0tLUJFR0lOIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLVxyXG5NSUlCRFRDQnRRSUJBREFuTVFzd0NRWURWUVFHRXdKRFRqRVlNQllHQTFVRUF3d1BZbVJmZEdsamEyVjBYMmQxXHJcbllYSmtNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVabEh3SDVIRUhPSTZ1QXYrTjd5S2s5NUdcclxuMVZMRGpqaThrM1QwNGhrZGNrMHQrSWtPdDQzRjVFbjloUS9pM0pWcHRWajN3UGtjVGZ6LzcxNlVyb1EyRUtBc1xyXG5NQ29HQ1NxR1NJYjNEUUVKRGpFZE1Cc3dHUVlEVlIwUkJCSXdFSUlPZDNkM0xtUnZkWGxwYmk1amIyMHdDZ1lJXHJcbktvWkl6ajBFQXdJRFJ3QXdSQUlnWDNsNmJHZlMzRlIraUdONGFKY0FFZXhhNGpncGFtcEtDWFY0a2FNaXJJb0NcclxuSUNtTzE0Y211bFhLL08rNlFiT09RQVV4eVlLWXRZS01iZXg4RVphYkhmWUtcclxuLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tXHJcbiJ9; passport_csrf_token=ee2f55e87576702c5dfd8578b423c9eb; passport_csrf_token_default=ee2f55e87576702c5dfd8578b423c9eb; msToken=u7mRzpRU1hYUq6GcylKuCT0UFi4F4iJXHUbIcN6Zzwsid05bKxya32sM3wdvyqh5cxaU5be_VIXJ5wjzfBJYmu6oQQ2VQeWmTT-a4DCN37AvWpRG1Lmk; msToken=gMKdwSrlpQ4jzi9ikh_0lkUffcVfi0xq_zIw7nGnDbHe9h5S_bHRPy1ln2ePj5kIE8ZM1qUjEoFOpCbaGh8Cg5uE2gw6fArSDWTVmct7OyvwZNkx2JT3n7vfSehnbw=="
+userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
 
-
+# 从分享内容中提取分享链接
 def get_share_url(share_text):
-    match = re.search(r'https://v.douyin.com/\S+?/', share_text)
+    match = re.search(r"https://v.douyin.com/\S+?/", share_text)
     if match is None:
         return None
     return match.group(0)
 
 
+# 从分享链接的重定向链接中提取 uid
 def get_uid(share_url):
-    res = request(share_url).url
-    uid = re.findall('/video/(.*?)/', res)[0]
+    res = requests.get(
+        url=share_url,
+        allow_redirects=True,
+    ).url
+    uid = re.findall("/video/(.*?)/", res)[0]
     return uid
 
 
-def get_src_json(uid):
-    src_url = 'https://www.iesdouyin.com/aweme/v1/web/aweme/detail/?aweme_id={}&aid=1128&version_name=23.5.0&device_platform=android&os_version=2333&Github=Evil0ctal&words=FXXK_U_ByteDance'.format(
-        uid)
-    src_json = request(src_url).json()['aweme_detail']
-    return src_json
+# 根据 uid 获取信息
+# NOTE 接口失效时需要重写
+def get_info(uid):
+    # 获取 mstoken, ttwid 和 url
+    res = requests.post(
+        url="https://tiktok-signature-inky.vercel.app/",
+        headers={ "Content-Type": "application/json" },
+        data=json.dumps({
+            "url": "https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={}&aid=1128&version_name=23.5.0&device_platform=android&os_version=2333".format(uid),
+            "userAgent": userAgent,
+        }),
+    ).json()
+    mstoken = res['data']['mstoken']
+    ttwid = res['data']['ttwid']
+    url = res['data']['url']
+    
+    # 获取 uid 
+    res = requests.get(
+        url = url,
+        headers={
+            'User-Agent':userAgent,
+            'Referer':'https://www.douyin.com/',
+            'cookie': headerCookie,
+        },
+        cookies={
+            'mstoken': mstoken,
+            'ttwid': ttwid,
+        }
+    ).json()
+    return res['aweme_detail']
 
 
-def get_video_url(src_json):
-    raw_url_list = src_json["video"]["play_addr"]["url_list"]
+def get_video_url(info):
+    raw_url_list = info["video"]["play_addr"]["url_list"]
     return raw_url_list[0]
 
 
-def get_images_url(src_json):
+def get_images_url(info):
     url_list = []
-    raw_images = src_json["images"]
+    raw_images = info["images"]
     for img in raw_images:
-        url_list.append(img['url_list'][0])
+        url_list.append(img["url_list"][0])
     return url_list
 
 
@@ -63,31 +76,41 @@ def spider(share_text):
     try:
         share_url = get_share_url(share_text)
         if share_url is None:
-            return None
-        print(share_url)
+            raise Exception("No share url in the content.")
+        # print(share_url)
+
         uid = get_uid(share_url)
-        print(uid)
-        src_json = get_src_json(uid)
-        if src_json is None:
-            return {'is_error': True, 'error_msg': 'src_json is None'}
-        if src_json["images"] is None:
+        # print(uid)
+
+        info = get_info(uid)
+        if info["images"] is None:
             return {
-                'is_error': False,
-                'is_images': False,
-                'video_url': get_video_url(src_json)
+                "is_error": False,
+                "is_images": False,
+                "desc": info['desc'],
+                "video_url": get_video_url(info),
             }
         return {
-            'is_error': False,
-            'is_images': True,
-            'images_url': get_images_url(src_json)
+            "is_error": False,
+            "is_images": True,
+            "desc": info['desc'],
+            "images_url": get_images_url(info),
         }
-
     except:
-        return {'is_error': True, 'error_msg': traceback.format_exc()}
+        return {"is_error": True, "error_msg": traceback.format_exc()}
 
 
-if __name__ == "__main__":
-    images_share_text = '0.51 foQ:/ 新年快乐🎆🎉。# 10后 # 185大帅哥 # 少年感 # 骗你生儿子  https://v.douyin.com/kB41ebQ/ 复制此链接，打开Dou音搜索，直接观看视频！'
-    video_share_text = '4.61 MJv:/ 他本是隐世高手，却受尽欺辱，十八分钟看完甄子丹《武侠》 # 大片即视感 # 我的观影报告  https://v.douyin.com/kkkAa2E/ 复制此链接，打开Dou音搜索，直接观看视频！'
-
+def test():
+    images_share_text = "2.07 VyG:/ 我又来放图集啦～还有你们要的小可爱大图也放啦～# 原创插画 # 寻找古籍守护人 # 全民晒书 # 山海经   https://v.douyin.com/SkryPed/ 复制此链接，打开Dou音搜索，直接观看视频！"
+    video_share_text = "4.61 MJv:/ 他本是隐世高手，却受尽欺辱，十八分钟看完甄子丹《武侠》 # 大片即视感 # 我的观影报告  https://v.douyin.com/kkkAa2E/ 复制此链接，打开Dou音搜索，直接观看视频！"
     print(spider(images_share_text))
+    print(spider(video_share_text))
+
+
+def runByShortCut():
+    share_text = sys.argv[1]
+    res = json.dumps(spider(share_text))
+    print(res) # return data by print
+
+
+runByShortCut()
